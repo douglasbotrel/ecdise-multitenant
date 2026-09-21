@@ -1,0 +1,653 @@
+// Ecdise - Schema do Banco de Dados
+// Sistema de Gestão de Licenciamento Ambiental
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// USUÁRIOS E PERMISSÕES
+// Role: ADMIN | GESTOR_GERAL | GESTOR_ADMINISTRATIVO | GESTOR_OPERACIONAL | GESTOR_CAMPO | SUPERVISOR | ANALISTA | ANALISTA_RAPIDO | TECNICO_CAMPO
+// Departamento: GESTAO_GERAL | COMERCIAL | FINANCEIRO | OPERACIONAL_AMBIENTAL | OPERACIONAL_REGULARIZACAO | GESTAO_CAMPO | CONTRATOS | BI
+// ============================================================
+
+model Usuario {
+  id            String   @id @default(cuid())
+  nome          String
+  email         String   @unique
+  senha         String
+  cargo         String?
+  telefone      String?
+  avatar        String?
+  role          String   @default("ANALISTA")
+  departamento  String   @default("OPERACIONAL_AMBIENTAL")
+  modulosAcesso String?  // JSON: ["dashboard","comercial","operacional",...]
+  ativo         Boolean  @default(true)
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  projetosResponsavel    Projeto[]   @relation("ProjetoResponsavel")
+  projetosSupervisor     Projeto[]   @relation("ProjetoSupervisor")
+  projetosAnalistaRapido Projeto[]   @relation("ProjetoAnalistaRapido")
+  tarefasResponsavel     Tarefa[]    @relation("TarefaResponsavel")
+  acoesPendenciaResponsavel AcaoPendencia[] @relation("AcaoPendenciaResponsavel")
+  vistorias              Vistoria[]  @relation("VistoriaResponsavel")
+  documentosUpload       Documento[]
+  notificacoes           Notificacao[]
+  logs                   Log[]
+  comentarios            Comentario[]
+  diarias                Diaria[]
+  tarefasSemana          TarefaSemana[]
+  condicionantesLicenca  CondicionanteLicenca[] @relation("CondicionanteLicencaResponsavel")
+
+  @@map("usuarios")
+}
+
+// ============================================================
+// CLIENTES
+// ============================================================
+
+model Cliente {
+  id           String   @id @default(cuid())
+  nome         String
+  cpfCnpj      String   @unique
+  email        String?
+  telefone     String?
+  endereco     String?
+  municipio    String?
+  estado       String?
+  cep          String?
+  observacoes  String?
+  ativo        Boolean  @default(true)
+  criadoEm    DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  projetos  Projeto[]
+  contratos Contrato[]
+  licencas  Licenca[]
+
+  @@map("clientes")
+}
+
+// ============================================================
+// PROJETOS
+// statusComercial: RECEBIDO | EM_ANALISE | PROPOSTA_ENVIADA | ACEITO | RECUSADO | AGUARDANDO_DOCS
+// statusOperacional: NAO_INICIADO | EM_ANDAMENTO | EM_CAMPO | AGUARDANDO_INFO | EM_REVISAO | CONCLUIDO | CANCELADO
+// etapaPipeline: SOLICITACAO | EM_ANALISE_RAPIDA | ANALISE_CONCLUIDA | AGUARDANDO_CONTRATO | AGUARDANDO_SINAL | OPERACIONAL | EM_EXECUCAO | CONCLUIDO | CANCELADO
+// ============================================================
+
+model Projeto {
+  id                   String   @id @default(cuid())
+  codigo               String   @unique @default(cuid())
+  clienteId            String
+  tipoServico          String
+  statusComercial      String   @default("RECEBIDO")
+  statusOperacional    String   @default("NAO_INICIADO")
+  descricao            String?
+  imovelNome           String?
+  imovelEndereco       String?
+  municipio            String?
+  estado               String?
+  car                  String?
+  areaHectares         Float?
+  valorProposto        Float?
+  tipoContrato         String?
+  observacoes          String?
+  observacoesAnalise   String?
+  dataEntrada          DateTime @default(now())
+  dataAprovacao        DateTime?
+  dataInicio           DateTime?
+  dataPrazo            DateTime?
+  dataConclusao        DateTime?
+  responsavelId        String?
+  supervisorId         String?
+  analistaRapidoId     String?
+  gestorResponsavelId  String?
+  etapaPipeline        String   @default("SOLICITACAO")
+  servicosRecomendados String?  // JSON: ["Licenciamento Ambiental", "Outorga"]
+  servicosContratados  String?  // JSON: serviços fechados
+  credenciais          String?  // JSON: {"SIGLA":{"login":"...","senha":"..."},"CTF":{...}}
+  valorSinal           Float?
+  valorPrestacao       Float?
+  numeroPrestacoes     Int?
+  // Protocolo / Acompanhamento de Processos
+  protocoloData        DateTime?
+  protocoloCodigoOrgao String?
+  checklistEncerramento String? // JSON: só itens manuais — {"documentos_entregues": true, ...}
+  excluido             Boolean   @default(false)
+  motivoExclusao       String?
+  excluidoEm           DateTime?
+  excluidoPor          String?
+  emAcompanhamento     Boolean  @default(false)
+  // Consulta automática SIGLA
+  caminhoSIGLA         String?   // Caminho explícito de verificação: recursos_florestais | licenciamento_ambiental | recursos_hidricos | null (não verifica)
+  statusSIGLA          String?   // Última situação extraída automaticamente do SIGLA
+  ultimaConsultaSIGLA  DateTime? // Quando foi feita a última consulta automática
+  criadoEm            DateTime @default(now())
+  atualizadoEm        DateTime @updatedAt
+
+  cliente        Cliente   @relation(fields: [clienteId], references: [id])
+  responsavel    Usuario?  @relation("ProjetoResponsavel",    fields: [responsavelId],    references: [id])
+  supervisor     Usuario?  @relation("ProjetoSupervisor",     fields: [supervisorId],     references: [id])
+  analistaRapido Usuario?  @relation("ProjetoAnalistaRapido", fields: [analistaRapidoId], references: [id])
+  contrato       Contrato?
+  tarefas        Tarefa[]
+  vistorias      Vistoria[]
+  documentos     Documento[]
+  comentarios    Comentario[]
+  historico      HistoricoStatus[]
+  pendencias     Pendencia[]
+  licenca        Licenca?
+  logsSigla      LogSIGLA[]
+
+  @@map("projetos")
+}
+
+// ============================================================
+// CONTRATOS
+// statusContrato: ATIVO | ASSINADO | AGUARDANDO_ASSINATURA | FINALIZADO | CANCELADO | SUSPENSO
+// ============================================================
+
+model Contrato {
+  id              String   @id @default(cuid())
+  codigo          String   @unique @default(cuid())
+  projetoId       String   @unique
+  clienteId       String
+  tipoContrato    String
+  dataAssinatura  DateTime?
+  dataVencimento  DateTime?
+  valorTotal      Float
+  valorSinal      Float    @default(0)
+  valorRestante   Float    @default(0)
+  numeroParcelas  Int      @default(1)
+  valorParcela    Float    @default(0)
+  statusContrato  String   @default("AGUARDANDO_ASSINATURA")
+  arquivoUrl      String?
+  observacoes     String?
+  servicosContratados String?
+  criadoEm       DateTime @default(now())
+  atualizadoEm   DateTime @updatedAt
+
+  projeto    Projeto    @relation(fields: [projetoId], references: [id])
+  cliente    Cliente    @relation(fields: [clienteId], references: [id])
+  pagamentos Pagamento[]
+
+  @@map("contratos")
+}
+
+// ============================================================
+// TAREFAS
+// tipo: ETAPA | TAREFA | MARCO | ENTREGA
+// status: PENDENTE | EM_ANDAMENTO | CONCLUIDA | ATRASADA | CANCELADA | AGUARDANDO
+// ============================================================
+
+model Tarefa {
+  id            String   @id @default(cuid())
+  projetoId     String
+  titulo        String
+  descricao     String?
+  observacao    String?  // Nota de tentativa: motivo pelo qual a tarefa não pôde ser concluída
+  tipo          String   @default("TAREFA")
+  status        String   @default("PENDENTE")
+  responsavelId String?
+  prazo         DateTime?
+  dataConclusao DateTime?
+  ordem         Int      @default(0)
+  etapa         String?
+  obrigatorio   Boolean  @default(false)
+  requerVistoriaCampo Boolean  @default(false)
+  statusVistoria      String?
+  dataCampo           DateTime?
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  projeto     Projeto   @relation(fields: [projetoId], references: [id])
+  responsavel Usuario?  @relation("TarefaResponsavel", fields: [responsavelId], references: [id])
+  documentos  Documento[]
+  vistoriaVinculada Vistoria?
+  planejamentosSemana TarefaSemana[]
+
+  @@map("tarefas")
+}
+
+// ============================================================
+// ACOMPANHAMENTO DE PROCESSOS (pós-protocolo, até a licença)
+// Pendencia.status: ABERTA | CONCLUIDA
+// ============================================================
+
+model Pendencia {
+  id            String    @id @default(cuid())
+  projetoId     String
+  numeroPedido  String
+  data          DateTime
+  prazoResposta DateTime
+  status        String    @default("ABERTA")
+  dataEntrega   DateTime?
+  criadoEm      DateTime  @default(now())
+  atualizadoEm  DateTime  @updatedAt
+
+  projeto Projeto         @relation(fields: [projetoId], references: [id])
+  acoes   AcaoPendencia[]
+
+  @@map("pendencias")
+}
+
+model AcaoPendencia {
+  id            String    @id @default(cuid())
+  pendenciaId   String
+  descricao     String
+  responsavelId String?
+  concluida     Boolean   @default(false)
+  dataConclusao DateTime?
+  criadoEm      DateTime  @default(now())
+  atualizadoEm  DateTime  @updatedAt
+
+  pendencia   Pendencia @relation(fields: [pendenciaId], references: [id])
+  responsavel Usuario?  @relation("AcaoPendenciaResponsavel", fields: [responsavelId], references: [id])
+  planejamentosSemana TarefaSemana[]
+
+  @@map("acoes_pendencia")
+}
+
+model Licenca {
+  id             String    @id @default(cuid())
+  projetoId      String?   @unique
+  clienteId      String?   // preenchido quando a licença não está vinculada a um projeto (cadastro externo/manual)
+  numero         String
+  dataEmissao    DateTime
+  dataValidade   DateTime?
+  areaPermitida  Float?
+  atividadePermitida String?
+  latitude       Float?
+  longitude      Float?
+  condicionantes String?   // observações gerais em texto livre (legado)
+  documentoUrl   String?
+  criadoEm       DateTime  @default(now())
+  atualizadoEm   DateTime  @updatedAt
+
+  projeto Projeto?  @relation(fields: [projetoId], references: [id])
+  cliente Cliente?  @relation(fields: [clienteId], references: [id])
+  planoAcao CondicionanteLicenca[]
+
+  @@map("licencas")
+}
+
+// ============================================================
+// PLANO DE AÇÃO DA LICENÇA (condicionantes estruturadas)
+// Mesmo padrão da Pendencia/AcaoPendencia: cada item tem um
+// responsável, descrição, como será feito e prazo — e aparece
+// para esse responsável em Tarefas da Semana.
+// ============================================================
+
+model CondicionanteLicenca {
+  id             String    @id @default(cuid())
+  licencaId      String
+  descricao      String    // o que precisa ser feito
+  comoSeraFeito  String?
+  responsavelId  String?
+  prazo          DateTime?
+  concluida      Boolean   @default(false)
+  dataConclusao  DateTime?
+  nota           String?   // observação livre, atualizável a qualquer momento
+  criadoEm       DateTime  @default(now())
+
+  licenca     Licenca  @relation(fields: [licencaId], references: [id])
+  responsavel Usuario? @relation("CondicionanteLicencaResponsavel", fields: [responsavelId], references: [id])
+  planejamentosSemana TarefaSemana[]
+
+  @@map("condicionantes_licenca")
+}
+
+// ============================================================
+// EQUIPES DE CAMPO
+// ============================================================
+
+model Equipe {
+  id           String   @id @default(cuid())
+  nome         String
+  cor          String   @default("#3b82f6")
+  membros      String?  // JSON: [usuarioId, ...]
+  ativa        Boolean  @default(true)
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  vistorias Vistoria[]
+
+  @@map("equipes")
+}
+
+// ============================================================
+// FROTA
+// tipo: CARRO | CAMINHONETE | VAN | MOTO | OUTRO
+// ============================================================
+
+model Frota {
+  id           String   @id @default(cuid())
+  placa        String   @unique
+  tipo         String   @default("CARRO")
+  marca        String?
+  modelo       String?
+  ano          Int?
+  cor          String?
+  kmAtual      Float?
+  documentoUrl String?
+  ativa        Boolean  @default(true)
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  vistorias Vistoria[]
+
+  @@map("frota")
+}
+
+// ============================================================
+// VISTORIAS
+// tipo: VISTORIA_CAMPO | LICENCA_BOVINO | OUTORGA | INVENTARIO | REUNIAO | OUTRO
+// status: AGENDADA | EM_ANDAMENTO | REALIZADA | CANCELADA | ADIADA
+// ============================================================
+
+model Vistoria {
+  id            String   @id @default(cuid())
+  projetoId     String
+  tarefaId      String?  @unique // Vincula à Tarefa de origem (Operacional) — permite fechar a vistoria automaticamente quando a tarefa é concluída
+  titulo        String
+  tipo          String   @default("VISTORIA_CAMPO")
+  status        String   @default("AGENDADA")
+  dataAgendada  DateTime
+  dataRealizada DateTime?
+  dataSaida     DateTime?
+  dataVolta     DateTime?
+  diasCampo     Int?
+  local         String?
+  municipio     String?
+  coordenadas   String?
+  responsavelId String?
+  equipeId      String?
+  equipe        String?
+  frotaId       String?
+  frota         String?
+  kmSaida       Float?
+  kmChegada     Float?
+  horaSaida     String?
+  horaChegada   String?
+  resultado     String?
+  observacoes   String?
+  manutencaoObs String?
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  projeto     Projeto      @relation(fields: [projetoId],     references: [id])
+  tarefa      Tarefa?      @relation(fields: [tarefaId],      references: [id])
+  responsavel Usuario?     @relation("VistoriaResponsavel",   fields: [responsavelId], references: [id])
+  equipeRef   Equipe?      @relation(fields: [equipeId],      references: [id])
+  frotaRef    Frota?       @relation(fields: [frotaId],       references: [id])
+  gastos      GastoCampo[]
+  diarias     Diaria[]
+  documentos  Documento[]
+
+  @@map("vistorias")
+}
+
+// ============================================================
+// DIÁRIAS / GASTOS DO TÉCNICO
+// ============================================================
+
+model Diaria {
+  id          String   @id @default(cuid())
+  vistoriaId  String
+  usuarioId   String
+  data        DateTime @default(now())
+  tipo        String   @default("OUTRO")
+  descricao   String?
+  valor       Float
+  comprovante String?
+  criadoEm    DateTime @default(now())
+
+  vistoria Vistoria @relation(fields: [vistoriaId], references: [id])
+  usuario  Usuario  @relation(fields: [usuarioId],  references: [id])
+
+  @@map("diarias")
+}
+
+model GastoCampo {
+  id             String   @id @default(cuid())
+  vistoriaId     String
+  tipo           String
+  descricao      String?
+  valor          Float
+  data           DateTime @default(now())
+  comprovanteUrl String?
+  criadoEm      DateTime @default(now())
+
+  vistoria Vistoria @relation(fields: [vistoriaId], references: [id])
+
+  @@map("gastos_campo")
+}
+
+// ============================================================
+// FINANCEIRO
+// tipo: SINAL | PARCELA | PAGAMENTO_FINAL | REEMBOLSO | OUTROS
+// status: PENDENTE | PAGO | VENCIDO | CANCELADO | PARCIAL
+// ============================================================
+
+model Pagamento {
+  id             String   @id @default(cuid())
+  contratoId     String
+  tipo           String   @default("PARCELA")
+  descricao      String?
+  valor          Float
+  valorRecebido  Float?   // valor efetivamente recebido (null = pagamento integral)
+  residual       Float?   // diferença: valor - valorRecebido (calculado automaticamente)
+  motivoAjuste   String?  // justificativa ADM para o pagamento parcial
+  aprovadoAdm    Boolean  @default(false) // ADM confirmou e registrou motivo
+  dataVencimento DateTime
+  dataPagamento  DateTime?
+  status         String   @default("PENDENTE")
+  formaPagamento String?
+  comprovante    String?
+  observacoes    String?
+  numeroParcela  Int?
+  criadoEm      DateTime @default(now())
+  atualizadoEm  DateTime @updatedAt
+
+  contrato Contrato @relation(fields: [contratoId], references: [id])
+
+  @@map("pagamentos")
+}
+
+// ============================================================
+// DOCUMENTOS
+// ============================================================
+
+model Documento {
+  id           String   @id @default(cuid())
+  nome         String
+  tipo         String?
+  categoria    String?
+  url          String
+  driveFileId  String?
+  tamanho      Int?
+  projetoId    String?
+  tarefaId     String?
+  vistoriaId   String?
+  uploadadoPor String?
+  criadoEm    DateTime @default(now())
+
+  projeto  Projeto?  @relation(fields: [projetoId],    references: [id])
+  tarefa   Tarefa?   @relation(fields: [tarefaId],     references: [id])
+  vistoria Vistoria? @relation(fields: [vistoriaId],   references: [id])
+  usuario  Usuario?  @relation(fields: [uploadadoPor], references: [id])
+
+  @@map("documentos")
+}
+
+// ============================================================
+// COMUNICAÇÃO E LOGS
+// ============================================================
+
+model Notificacao {
+  id        String   @id @default(cuid())
+  usuarioId String
+  titulo    String
+  mensagem  String
+  tipo      String   @default("info")
+  lida      Boolean  @default(false)
+  link      String?
+  criadoEm DateTime @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id])
+
+  @@map("notificacoes")
+}
+
+model Comentario {
+  id        String   @id @default(cuid())
+  projetoId String
+  autorId   String
+  texto     String
+  criadoEm DateTime @default(now())
+
+  projeto Projeto @relation(fields: [projetoId], references: [id])
+  autor   Usuario @relation(fields: [autorId],   references: [id])
+
+  @@map("comentarios")
+}
+
+model Log {
+  id         String   @id @default(cuid())
+  usuarioId  String?
+  acao       String
+  entidade   String
+  entidadeId String?
+  detalhes   String?
+  ip         String?
+  criadoEm  DateTime @default(now())
+
+  usuario Usuario? @relation(fields: [usuarioId], references: [id])
+
+  @@map("logs")
+}
+
+model HistoricoStatus {
+  id             String   @id @default(cuid())
+  projetoId      String
+  statusAnterior String?
+  statusNovo     String
+  campo          String   @default("statusOperacional")
+  observacao     String?
+  usuarioId      String?
+  criadoEm      DateTime @default(now())
+
+  projeto Projeto @relation(fields: [projetoId], references: [id])
+
+  @@map("historico_status")
+}
+
+// ============================================================
+// SIGLA — LOG DE CONSULTAS AUTOMÁTICAS
+// ============================================================
+
+model LogSIGLA {
+  id             String   @id @default(cuid())
+  projetoId      String
+  protocolo      String
+  statusAnterior String?
+  statusNovo     String
+  erro           String?  // null = sucesso; string = mensagem de erro
+  consultadoEm   DateTime @default(now())
+
+  projeto Projeto @relation(fields: [projetoId], references: [id])
+
+  @@map("logs_sigla")
+}
+
+// ============================================================
+// PLANEJAMENTO SEMANAL DE TAREFAS
+// Seleção leve: qual tarefa o usuário escolheu fazer em qual semana.
+// NÃO duplica dados da tarefa — a conclusão é lida direto da Tarefa
+// (status/dataConclusao) já existente. Serve só para: (1) organizar a
+// rotina do usuário e (2) gerar o KPI de cumprimento semanal por usuário.
+// ============================================================
+
+model TarefaSemana {
+  id              String   @id @default(cuid())
+  tipo            String   @default("TAREFA") // TAREFA | PENDENCIA | CONDICIONANTE_LICENCA
+  tarefaId        String?
+  acaoPendenciaId String?
+  condicionanteLicencaId String?
+  usuarioId       String
+  semanaInicio    DateTime // segunda-feira (00:00) da semana em que foi planejada
+  diaSemana       Int?     // 0=Segunda .. 6=Domingo — null = "qualquer dia da semana"
+  criadoEm        DateTime @default(now())
+
+  tarefa               Tarefa?               @relation(fields: [tarefaId], references: [id])
+  acaoPendencia        AcaoPendencia?        @relation(fields: [acaoPendenciaId], references: [id])
+  condicionanteLicenca CondicionanteLicenca? @relation(fields: [condicionanteLicencaId], references: [id])
+  usuario              Usuario               @relation(fields: [usuarioId], references: [id])
+
+  @@unique([tarefaId, usuarioId, semanaInicio])
+  @@unique([acaoPendenciaId, usuarioId, semanaInicio])
+  @@unique([condicionanteLicencaId, usuarioId, semanaInicio])
+  @@map("tarefas_semana")
+}
+
+// ============================================================
+// PRÉ-CADASTROS
+// ============================================================
+
+model TipoServico {
+  id                   String   @id @default(cuid())
+  nome                 String   @unique
+  categoria            String
+  valor                Float    @default(0) // Valor do serviço, usado para somar o valor total apresentado ao cliente na etapa comercial
+  descricao            String?
+  documentosRequeridos String?
+  tarefasPadrao        String?
+  ativo                Boolean  @default(true)
+  ordem                Int      @default(0)
+  criadoEm            DateTime @default(now())
+  atualizadoEm        DateTime @updatedAt
+
+  @@map("tipos_servico")
+}
+
+model TipoCusto {
+  id        String   @id @default(cuid())
+  nome      String   @unique
+  categoria String   @default("campo")
+  descricao String?
+  ativo     Boolean  @default(true)
+  criadoEm DateTime @default(now())
+
+  @@map("tipos_custo")
+}
+
+model ConfiguracaoDepartamento {
+  id        String  @id @default(cuid())
+  nome      String  @unique
+  codigo    String  @unique
+  acessos   String
+  descricao String?
+  ativo     Boolean @default(true)
+
+  @@map("configuracao_departamento")
+}
+
+model CadastroTeste {
+  id              String   @id @default(cuid())
+  nome            String
+  email           String
+  whatsapp        String
+  estado          String
+  qtdFuncionarios String
+  nomeEmpresa     String
+  usaSistema      String
+  criadoEm        DateTime @default(now())
+
+  @@map("cadastro_teste")
+}
