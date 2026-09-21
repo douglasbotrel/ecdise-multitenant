@@ -47,19 +47,31 @@ export interface TenantResolvido {
 export async function resolverTenantPorEmail(email: string): Promise<TenantResolvido | null> {
   const { url, secret } = getControlPlaneConfig()
 
-  const res = await fetch(`${url}/api/login-roteamento`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-internal-secret': secret,
-    },
-    body: JSON.stringify({ email }),
-    cache: 'no-store',
-  })
+  let res: Response
+  try {
+    res = await fetch(`${url}/api/login-roteamento`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-internal-secret': secret,
+      },
+      body: JSON.stringify({ email }),
+      cache: 'no-store',
+    })
+  } catch (err) {
+    console.error(`[tenant] nao consegui chamar o control-plane em ${url}/api/login-roteamento —`, err)
+    return null
+  }
 
-  if (!res.ok) return null
+  if (!res.ok) {
+    console.error(`[tenant] control-plane respondeu ${res.status} em /api/login-roteamento para "${email}"`)
+    return null
+  }
   const data = await res.json()
-  if (!data?.empresaId || !data?.databaseUrl) return null
+  if (!data?.empresaId || !data?.databaseUrl) {
+    console.error(`[tenant] control-plane nao encontrou empresa/banco pra "${email}"`, data)
+    return null
+  }
 
   empresaDatabaseCache.set(data.empresaId, data.databaseUrl)
   return { empresaId: data.empresaId, nomeEmpresa: data.nomeEmpresa, databaseUrl: data.databaseUrl }
@@ -74,19 +86,31 @@ export async function resolverDatabaseUrlPorEmpresa(empresaId: string): Promise<
 
   const { url, secret } = getControlPlaneConfig()
 
-  const res = await fetch(`${url}/api/empresa-database`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-internal-secret': secret,
-    },
-    body: JSON.stringify({ empresaId }),
-    cache: 'no-store',
-  })
+  let res: Response
+  try {
+    res = await fetch(`${url}/api/empresa-database`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-internal-secret': secret,
+      },
+      body: JSON.stringify({ empresaId }),
+      cache: 'no-store',
+    })
+  } catch (err) {
+    console.error(`[tenant] nao consegui chamar o control-plane em ${url}/api/empresa-database —`, err)
+    return null
+  }
 
-  if (!res.ok) return null
+  if (!res.ok) {
+    console.error(`[tenant] control-plane respondeu ${res.status} em /api/empresa-database para empresaId="${empresaId}"`)
+    return null
+  }
   const data = await res.json()
-  if (!data?.databaseUrl) return null
+  if (!data?.databaseUrl) {
+    console.error(`[tenant] control-plane nao retornou databaseUrl pra empresaId="${empresaId}"`, data)
+    return null
+  }
 
   empresaDatabaseCache.set(empresaId, data.databaseUrl)
   return data.databaseUrl
