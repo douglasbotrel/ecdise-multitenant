@@ -79,6 +79,9 @@ export async function POST(request: NextRequest) {
 
     // Usuário não encontrado ou inativo — mesma mensagem para não revelar se o email existe
     if (!usuario || !usuario.ativo) {
+      console.error(
+        `[login] usuario "${email}" nao encontrado (ou inativo) no banco de "${tenant.nomeEmpresa}" (empresaId=${tenant.empresaId})`
+      )
       await prisma.log.create({
         data: {
           acao: 'LOGIN_FALHOU',
@@ -92,6 +95,7 @@ export async function POST(request: NextRequest) {
 
     const senhaValida = await comparePassword(senha, usuario.senha)
     if (!senhaValida) {
+      console.error(`[login] senha incorreta pra "${email}" no banco de "${tenant.nomeEmpresa}"`)
       // Log de tentativa com senha errada (sem revelar o motivo ao cliente)
       await prisma.log.create({
         data: {
