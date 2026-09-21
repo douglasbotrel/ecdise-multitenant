@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { comparePassword, signToken } from '@/lib/auth'
+import { getTenantPrisma, resolverTenantPorEmail } from '@/lib/tenant'
 
 // ── Rate Limiting em memória ─────────────────────────────────────
 // Limita tentativas de login por IP: 10 tentativas em 15 minutos.
@@ -65,6 +65,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Primeiro descobre de qual empresa é esse e-mail (control-plane) — só
+    // depois disso sabemos em qual banco procurar o usuário.
+    const tenant = await resolverTenantPorEmail(email.toLowerCase().trim()).catch(() => null)
+    if (!tenant) {
+      return NextResponse.json({ error: 'Credenciais inválidas' }, { status: 401 })
+    }
+    const prisma = getTenantPrisma(tenant.databaseUrl)
+
     const usuario = await prisma.usuario.findUnique({
       where: { email: email.toLowerCase().trim() },
     })
@@ -107,6 +115,7 @@ export async function POST(request: NextRequest) {
       nome: usuario.nome,
       role: usuario.role,
       departamento: usuario.departamento,
+      empresaId: tenant.empresaId,
     })
 
     await prisma.log.create({

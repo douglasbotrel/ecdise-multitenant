@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
 import { cookies } from 'next/headers'
-import { prisma } from './prisma'
+import { getTenantPrisma, resolverDatabaseUrlPorEmpresa } from './tenant'
 
 // Acessa JWT_SECRET de forma lazy (só na hora de usar), nunca no carregamento do módulo.
 // Isso permite que o Next.js compile as rotas sem precisar do env durante o build.
@@ -21,6 +21,7 @@ export interface JWTPayload {
   nome: string
   role: string
   departamento: string
+  empresaId: string
 }
 
 export function signToken(payload: JWTPayload): string {
@@ -53,8 +54,15 @@ export async function getCurrentUser(): Promise<JWTPayload | null> {
 
     const payload = verifyToken(token)
     if (!payload) return null
+    if (!payload.empresaId) return null
 
-    const usuario = await prisma.usuario.findUnique({
+    // Resolve qual banco pertence a essa empresa (control-plane) e confirma
+    // que o usuário ainda está ativo NESSE banco (não no banco global).
+    const databaseUrl = await resolverDatabaseUrlPorEmpresa(payload.empresaId)
+    if (!databaseUrl) return null
+
+    const tenantPrisma = getTenantPrisma(databaseUrl)
+    const usuario = await tenantPrisma.usuario.findUnique({
       where: { id: payload.id },
       select: { ativo: true },
     })
