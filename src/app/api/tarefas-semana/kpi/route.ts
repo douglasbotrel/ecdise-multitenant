@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getCurrentUser } from '@/lib/auth'
+import { getAuthContext } from '@/lib/auth'
 
 const PODE_VER_KPI = ['ADMIN', 'GESTOR_GERAL', 'GESTOR_OPERACIONAL', 'GESTOR_ADMINISTRATIVO', 'SUPERVISOR']
 
@@ -17,8 +16,9 @@ function segundaFeiraDaSemana(data: Date): Date {
 // GET /api/tarefas-semana/kpi?semanas=4
 export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const auth = await getAuthContext()
+    if (!auth) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { usuario: user, prisma } = auth
     if (!PODE_VER_KPI.includes(user.role)) {
       return NextResponse.json({ error: 'Sem permissão para ver este painel' }, { status: 403 })
     }

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getCurrentUser } from '@/lib/auth'
+import { getAuthContext } from '@/lib/auth'
 
 /**
  * POST /api/projetos/importar
@@ -23,8 +22,9 @@ import { getCurrentUser } from '@/lib/auth'
  */
 export async function POST(req: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const auth = await getAuthContext()
+    if (!auth) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { usuario: user, prisma } = auth
 
     const isAdm = ['ADMIN', 'GESTOR_GERAL'].includes(user.role)
     if (!isAdm) return NextResponse.json({ error: 'Apenas ADM pode importar processos' }, { status: 403 })

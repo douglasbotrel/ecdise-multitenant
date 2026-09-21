@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getCurrentUser, hashPassword, hasPermission } from '@/lib/auth'
+import { getAuthContext, hashPassword, hasPermission } from '@/lib/auth'
 
 // Valida complexidade mínima de senha
 function validarSenha(senha: string): string | null {
@@ -12,8 +11,9 @@ function validarSenha(senha: string): string | null {
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const auth = await getAuthContext()
+    if (!auth) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { usuario: user, prisma } = auth
 
     const { searchParams } = new URL(request.url)
     const role = searchParams.get('role')
@@ -43,8 +43,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const auth = await getAuthContext()
+    if (!auth) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { usuario: user, prisma } = auth
     if (!hasPermission(user.role, 'GESTOR_GERAL')) {
       return NextResponse.json({ error: 'Sem permissão para criar usuários' }, { status: 403 })
     }

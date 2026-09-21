@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getCurrentUser } from '@/lib/auth'
+import { getAuthContext } from '@/lib/auth'
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const auth = await getAuthContext()
+    if (!auth) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { usuario: user, prisma } = auth
 
     const body = await request.json()
     const {
@@ -146,8 +146,9 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const auth = await getAuthContext()
+    if (!auth) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { usuario: user, prisma } = auth
 
     const contrato = await prisma.contrato.findUnique({
       where: { id: params.id },

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { getAuthContext } from '@/lib/auth'
 import path from 'path'
 import { writeFile, mkdir } from 'fs/promises'
 
@@ -12,8 +11,9 @@ const EXTENSOES_PERMITIDAS = [
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const auth = await getAuthContext()
+    if (!auth) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { usuario: user, prisma } = auth
 
     const formData   = await request.formData()
     const arquivo    = formData.get('arquivo')   as File   | null

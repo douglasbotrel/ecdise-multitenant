@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getCurrentUser } from '@/lib/auth'
+import { getAuthContext } from '@/lib/auth'
 import { PODE_GERENCIAR_LICENCAS } from '@/lib/permissoesLicencas'
 
 // GET /api/licencas — lista todas as licenças (vinculadas a projeto ou cadastradas soltas)
 export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const auth = await getAuthContext()
+    if (!auth) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { usuario: user, prisma } = auth
     if (!PODE_GERENCIAR_LICENCAS.includes(user.role)) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -51,8 +51,9 @@ export async function GET(request: NextRequest) {
 // sem ter passado pelo pipeline (não terá código PRJ-00XX).
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const auth = await getAuthContext()
+    if (!auth) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { usuario: user, prisma } = auth
     if (!PODE_GERENCIAR_LICENCAS.includes(user.role)) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }

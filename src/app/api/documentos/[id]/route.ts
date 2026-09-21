@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { getAuthContext } from '@/lib/auth'
 import { excluirDoDrive, isDriveConfigurado } from '@/lib/gdrive'
 
 export async function DELETE(
@@ -8,8 +7,9 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const auth = await getAuthContext()
+    if (!auth) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { usuario: user, prisma } = auth
 
     const doc = await prisma.documento.findUnique({ where: { id: params.id } })
     if (!doc) return NextResponse.json({ error: 'Documento não encontrado' }, { status: 404 })

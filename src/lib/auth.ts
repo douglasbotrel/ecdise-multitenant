@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
 import { cookies } from 'next/headers'
+import type { PrismaClient } from '@prisma/client'
 import { getTenantPrisma, resolverDatabaseUrlPorEmpresa } from './tenant'
 
 // Acessa JWT_SECRET de forma lazy (só na hora de usar), nunca no carregamento do módulo.
@@ -46,29 +47,52 @@ export async function comparePassword(password: string, hash: string): Promise<b
   return bcrypt.compare(password, hash)
 }
 
+export interface AuthContext {
+  usuario: JWTPayload
+  prisma: PrismaClient
+}
+
+// Núcleo compartilhado: valida o cookie, resolve o banco do tenant (via
+// control-plane) e confirma que o usuário ainda está ativo NESSE banco (não
+// no banco global). getCurrentUser() e getAuthContext() usam a mesma checagem
+// pra nunca ficarem divergentes.
+async function resolveAuthContext(): Promise<AuthContext | null> {
+  const cookieStore = cookies()
+  const token = cookieStore.get('ecdise_token')?.value
+  if (!token) return null
+
+  const payload = verifyToken(token)
+  if (!payload) return null
+  if (!payload.empresaId) return null
+
+  const databaseUrl = await resolverDatabaseUrlPorEmpresa(payload.empresaId)
+  if (!databaseUrl) return null
+
+  const tenantPrisma = getTenantPrisma(databaseUrl)
+  const usuario = await tenantPrisma.usuario.findUnique({
+    where: { id: payload.id },
+    select: { ativo: true },
+  })
+  if (!usuario || !usuario.ativo) return null
+
+  return { usuario: payload, prisma: tenantPrisma }
+}
+
 export async function getCurrentUser(): Promise<JWTPayload | null> {
   try {
-    const cookieStore = cookies()
-    const token = cookieStore.get('ecdise_token')?.value
-    if (!token) return null
+    const ctx = await resolveAuthContext()
+    return ctx?.usuario ?? null
+  } catch {
+    return null
+  }
+}
 
-    const payload = verifyToken(token)
-    if (!payload) return null
-    if (!payload.empresaId) return null
-
-    // Resolve qual banco pertence a essa empresa (control-plane) e confirma
-    // que o usuário ainda está ativo NESSE banco (não no banco global).
-    const databaseUrl = await resolverDatabaseUrlPorEmpresa(payload.empresaId)
-    if (!databaseUrl) return null
-
-    const tenantPrisma = getTenantPrisma(databaseUrl)
-    const usuario = await tenantPrisma.usuario.findUnique({
-      where: { id: payload.id },
-      select: { ativo: true },
-    })
-    if (!usuario || !usuario.ativo) return null
-
-    return payload
+// Usado pelas rotas de API que precisam do Prisma do tenant certo, não do
+// banco global. Substitui o par "getCurrentUser() + import { prisma } from
+// '@/lib/prisma'" nas rotas autenticadas.
+export async function getAuthContext(): Promise<AuthContext | null> {
+  try {
+    return await resolveAuthContext()
   } catch {
     return null
   }

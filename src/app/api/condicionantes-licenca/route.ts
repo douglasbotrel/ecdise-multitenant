@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getCurrentUser } from '@/lib/auth'
+import { getAuthContext } from '@/lib/auth'
 import { PODE_GERENCIAR_LICENCAS } from '@/lib/permissoesLicencas'
 
 // POST /api/condicionantes-licenca — adiciona um item ao plano de ação de uma licença
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const auth = await getAuthContext()
+    if (!auth) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { usuario: user, prisma } = auth
     if (!PODE_GERENCIAR_LICENCAS.includes(user.role)) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -53,8 +53,9 @@ export async function POST(request: NextRequest) {
 // PATCH /api/condicionantes-licenca — marca concluída, ou edita descrição/responsável/prazo
 export async function PATCH(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const auth = await getAuthContext()
+    if (!auth) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { usuario: user, prisma } = auth
 
     const body = await request.json()
     const { id, concluida, descricao, comoSeraFeito, responsavelId, prazo, nota } = body
@@ -101,8 +102,9 @@ export async function PATCH(request: NextRequest) {
 // Restrito ao ADMIN — os demais gestores podem editar, mas não excluir.
 export async function DELETE(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const auth = await getAuthContext()
+    if (!auth) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { usuario: user, prisma } = auth
     if (user.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Apenas o Administrador pode excluir condicionantes' }, { status: 403 })
     }

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getCurrentUser } from '@/lib/auth'
+import { getAuthContext } from '@/lib/auth'
 
 // Quem pode ver/planejar a semana de OUTRO usuário (além da própria)
 const PODE_VER_OUTROS = ['ADMIN', 'GESTOR_GERAL', 'GESTOR_OPERACIONAL', 'GESTOR_ADMINISTRATIVO', 'SUPERVISOR']
@@ -16,8 +15,9 @@ function segundaFeiraDaSemana(data: Date): Date {
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const auth = await getAuthContext()
+    if (!auth) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { usuario: user, prisma } = auth
 
     const { searchParams } = new URL(request.url)
     const semanaParam = searchParams.get('semanaInicio')
@@ -194,8 +194,9 @@ export async function GET(request: NextRequest) {
 // Adiciona uma tarefa, ação de pendência ou condicionante de licença ao planejamento da semana
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const auth = await getAuthContext()
+    if (!auth) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { usuario: user, prisma } = auth
 
     const body = await request.json()
     const { itemId, tipo, semanaInicio: semanaParam, diaSemana } = body
@@ -273,8 +274,9 @@ export async function POST(request: NextRequest) {
 // Atualiza o dia da semana escolhido para um item já planejado
 export async function PATCH(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const auth = await getAuthContext()
+    if (!auth) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { usuario: user, prisma } = auth
 
     const body = await request.json()
     const { id, diaSemana } = body
@@ -301,8 +303,9 @@ export async function PATCH(request: NextRequest) {
 // Remove um item do planejamento da semana (volta pro backlog)
 export async function DELETE(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const auth = await getAuthContext()
+    if (!auth) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { usuario: user, prisma } = auth
 
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')

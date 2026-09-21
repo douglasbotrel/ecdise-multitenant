@@ -1,13 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getCurrentUser } from '@/lib/auth'
+import { NextResponse } from 'next/server'
+import { getAuthContext } from '@/lib/auth'
 
 export async function GET() {
   try {
-    const userPayload = await getCurrentUser()
-    if (!userPayload) {
+    const auth = await getAuthContext()
+    if (!auth) {
       return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
     }
+    const { usuario: userPayload, prisma } = auth
 
     const usuario = await prisma.usuario.findUnique({
       where: { id: userPayload.id },

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getCurrentUser } from '@/lib/auth'
+import type { PrismaClient } from '@prisma/client'
+import { getAuthContext } from '@/lib/auth'
 
 // Qual etapa vem depois de cada etapa ao "salvar/confirmar"
 const PROXIMA_ETAPA: Record<string, string> = {
@@ -13,7 +13,7 @@ const PROXIMA_ETAPA: Record<string, string> = {
   EM_EXECUCAO:         'CONCLUIDO',
 }
 
-async function criarNotificacaoEtapa(etapa: string, projeto: any) {
+async function criarNotificacaoEtapa(prisma: PrismaClient, etapa: string, projeto: any) {
   const notifs: { usuarioId: string; titulo: string; mensagem: string; tipo: string; link: string }[] = []
   const base = `Projeto ${projeto.codigo} — ${projeto.imovelNome || projeto.tipoServico}`
 
@@ -94,8 +94,9 @@ async function criarNotificacaoEtapa(etapa: string, projeto: any) {
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const auth = await getAuthContext()
+    if (!auth) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { usuario: user, prisma } = auth
 
     const projeto = await prisma.projeto.findUnique({
       where: { id: params.id },
@@ -158,8 +159,9 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const auth = await getAuthContext()
+    if (!auth) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { usuario: user, prisma } = auth
 
     const body = await request.json()
     const projeto = await prisma.projeto.findUnique({ where: { id: params.id } })
@@ -301,7 +303,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
     // Notificações para a nova etapa
     if (novaEtapa !== projeto.etapaPipeline) {
-      await criarNotificacaoEtapa(novaEtapa, projetoAtualizado)
+      await criarNotificacaoEtapa(prisma, novaEtapa, projetoAtualizado)
     }
 
     // ── AUTO-CRIAR TAREFAS ao entrar em OPERACIONAL (ou forçado por gerarTarefas) ──
@@ -374,8 +376,9 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const auth = await getAuthContext()
+    if (!auth) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { usuario: user, prisma } = auth
     if (user.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Apenas o Administrador pode excluir projetos' }, { status: 403 })
     }

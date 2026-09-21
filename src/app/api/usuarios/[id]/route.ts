@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getCurrentUser, hasPermission, hashPassword } from '@/lib/auth'
+import { getAuthContext, hasPermission, hashPassword } from '@/lib/auth'
 
 function validarSenha(senha: string): string | null {
   if (senha.length < 8)     return 'A senha deve ter pelo menos 8 caracteres'
@@ -11,8 +10,9 @@ function validarSenha(senha: string): string | null {
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const auth = await getAuthContext()
+    if (!auth) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { usuario: user, prisma } = auth
     if (!hasPermission(user.role, 'GESTOR_GERAL')) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
@@ -33,8 +33,9 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const auth = await getAuthContext()
+    if (!auth) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { usuario: user, prisma } = auth
     if (!hasPermission(user.role, 'GESTOR_GERAL')) {
       return NextResponse.json({ error: 'Sem permissão para editar usuários' }, { status: 403 })
     }
@@ -131,8 +132,9 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const auth = await getAuthContext()
+    if (!auth) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { usuario: user, prisma } = auth
     if (user.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Apenas administradores podem excluir usuários' }, { status: 403 })
     }

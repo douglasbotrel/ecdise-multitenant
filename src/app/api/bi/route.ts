@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getCurrentUser } from '@/lib/auth'
+import { getAuthContext } from '@/lib/auth'
 
 // Filtro reutilizado em toda consulta de Pagamento — ignora projetos excluídos
 const PROJETO_ATIVO = { contrato: { projeto: { excluido: false } } }
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const auth = await getAuthContext()
+    if (!auth) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { usuario: user, prisma } = auth
 
     const hoje = new Date()
     const inicioHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())

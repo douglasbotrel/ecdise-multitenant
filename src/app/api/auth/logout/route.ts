@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getCurrentUser } from '@/lib/auth'
+import { getAuthContext } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
     // Registra o logout no log de auditoria
-    const user = await getCurrentUser()
-    if (user) {
+    const auth = await getAuthContext()
+    if (auth) {
+      const { usuario: user, prisma } = auth
       await prisma.log.create({
         data: {
           usuarioId: user.id,

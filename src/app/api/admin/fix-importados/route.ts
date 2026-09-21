@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getCurrentUser } from '@/lib/auth'
+import { getAuthContext } from '@/lib/auth'
 
 /**
  * GET /api/admin/fix-importados
@@ -15,10 +14,11 @@ import { getCurrentUser } from '@/lib/auth'
  */
 export async function GET() {
   try {
-    const user = await getCurrentUser()
-    if (!user || user.role !== 'ADMIN') {
+    const auth = await getAuthContext()
+    if (!auth || auth.usuario.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Acesso negado — apenas ADMIN' }, { status: 403 })
     }
+    const { prisma } = auth
 
     // Identifica projetos importados: emAcompanhamento=true, sem tarefas, sem contrato,
     // e ainda com etapaPipeline=OPERACIONAL (o bug).

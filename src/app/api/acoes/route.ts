@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getCurrentUser } from '@/lib/auth'
+import { getAuthContext } from '@/lib/auth'
 
 // PATCH /api/acoes — marca/desmarca uma ação como concluída
 // Quando todas as ações de uma pendência ficam concluídas, a pendência é
@@ -8,8 +7,9 @@ import { getCurrentUser } from '@/lib/auth'
 // Pendências já concluídas ficam somente leitura (não aceitam novo toggle).
 export async function PATCH(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const auth = await getAuthContext()
+    if (!auth) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { usuario: user, prisma } = auth
 
     const body = await request.json()
     const { id, concluida, descricao, responsavelId } = body

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getCurrentUser } from '@/lib/auth'
+import { getAuthContext } from '@/lib/auth'
 
 // Roles que têm acesso ao módulo de contratos
 const ROLES_CONTRATOS = ['ADMIN', 'GESTOR_GERAL', 'GESTOR_ADMINISTRATIVO']
@@ -12,8 +11,9 @@ function temAcessoContratos(user: any) {
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const auth = await getAuthContext()
+    if (!auth) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { usuario: user, prisma } = auth
     if (!temAcessoContratos(user)) {
       return NextResponse.json({ error: 'Sem permissão para acessar contratos' }, { status: 403 })
     }
@@ -45,8 +45,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const auth = await getAuthContext()
+    if (!auth) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+    const { usuario: user, prisma } = auth
     if (!temAcessoContratos(user)) {
       return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
     }
