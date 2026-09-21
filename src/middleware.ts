@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const PUBLIC_ROUTES = ['/login', '/api/auth/login', '/cadastro-teste', '/api/cadastro-teste', '/api/sigla/projetos', '/api/sigla/status']
+const PUBLIC_ROUTES = ['/login', '/api/auth/login', '/api/sigla/projetos', '/api/sigla/status']
 
 // Verifica assinatura HMAC-SHA256 do JWT usando Web Crypto API (compatível com Edge Runtime).
 // O jsonwebtoken não roda no Edge — mas o crypto.subtle sim.

@@ -79,14 +79,6 @@ export default function LoginPage() {
           <p className="text-gray-500 mt-1">Gestão de Licenciamento Ambiental</p>
         </div>
 
-        {/* Link de teste gratuito — entre logo e card */}
-        <a
-          href="/cadastro-teste"
-          className="mb-4 flex items-center justify-center gap-2 w-full py-3.5 px-6 rounded-xl border-2 border-red-500 text-red-600 font-semibold text-sm hover:bg-red-500 hover:text-white transition-all duration-200 shadow-sm"
-        >
-          📋 Questionário para acessar 3 meses de teste grátis
-        </a>
-
         {/* Card */}
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
           <h2 className="text-xl font-semibold text-gray-800 mb-6">Entrar no sistema</h2>
